@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -125,5 +126,39 @@ func PrivateKeySinger(pk *ecdsa.PrivateKey, signer types.Signer) bind.SignerFn {
 			return nil, errors.New("incorrect signer address")
 		}
 		return types.SignTx(transaction, signer, pk)
+	}
+}
+
+func DeriveWallets(mnemonic string, count int) (*ecdsa.PrivateKey, []*ecdsa.PrivateKey, error) {
+	if count < 2 {
+		return nil, nil, fmt.Errorf("count must be greater than 2")
+	}
+
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var accounts []*ecdsa.PrivateKey
+	for i := 0; i <= count; i++ {
+		path := hdwallet.MustParseDerivationPath(fmt.Sprintf("m/44'/60'/0'/0/%d", i))
+		account, err := wallet.Derive(path, false)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to derive account %d: %w", i, err)
+		}
+		privKey, err := wallet.PrivateKey(account)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get private key for account %d: %w", i, err)
+		}
+		accounts = append(accounts, privKey)
+	}
+	return accounts[0], accounts[1:], nil
+}
+
+func ReportWallets(main *ecdsa.PrivateKey, searchers []*ecdsa.PrivateKey) {
+	// address from private key
+	fmt.Println("Main wallet address:", crypto.PubkeyToAddress(main.PublicKey).String())
+	for i, searcher := range searchers {
+		fmt.Println(fmt.Sprintf("Searcher %d address: ", i), crypto.PubkeyToAddress(searcher.PublicKey).String())
 	}
 }
