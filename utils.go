@@ -12,6 +12,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -126,8 +128,8 @@ func privateKeySinger(pk *ecdsa.PrivateKey, signer types.Signer) bind.SignerFn {
 }
 
 func DeriveWallets(mnemonic string, count int) (*ecdsa.PrivateKey, []*ecdsa.PrivateKey, error) {
-	if count < 1 {
-		return nil, nil, fmt.Errorf("count must be greater than 1")
+	if count < 0 {
+		return nil, nil, fmt.Errorf("count must be >= 0")
 	}
 
 	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
@@ -157,4 +159,16 @@ func ReportWallets(main *ecdsa.PrivateKey, searchers []*ecdsa.PrivateKey) {
 	for i, searcher := range searchers {
 		fmt.Println(fmt.Sprintf("Searcher %d address: ", i), crypto.PubkeyToAddress(searcher.PublicKey).String())
 	}
+}
+
+func ParseIntList(s string) ([]int, error) {
+	var result []int
+	for _, v := range strings.Split(s, ",") {
+		i, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, i)
+	}
+	return result, nil
 }

@@ -66,6 +66,8 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 		lastEffGasPrice *big.Int
 		lastSlotValue   *big.Int
 		lastNonce       uint64
+
+		sentBundles uint64
 	)
 
 	limiter := rate.NewLimiter(rate.Limit(b.bidRate), 1)
@@ -81,7 +83,7 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 			continue
 		}
 		if blockNumber != lastBlockNumber || lastBlockNumber == 0 {
-			fmt.Println("switching to new block", blockNumber)
+			fmt.Println("switching to new block", blockNumber, "sentBundlesPrevBlock", sentBundles)
 			lastSlotValue, err = mevsimSession.GetSlot(b.slot)
 			if err != nil {
 				fmt.Println("error getting slot value", err)
@@ -94,6 +96,7 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 			}
 			lastEffGasPrice = new(big.Int).Set(b.startingEffGasPrice)
 			lastBlockNumber = blockNumber
+			sentBundles = 0
 		} else {
 			lastEffGasPrice = lastEffGasPrice.Add(lastEffGasPrice, b.incrementEffGasPrice)
 		}
@@ -108,7 +111,6 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 			continue
 		}
 
-		fmt.Println("created tx", tx.Hash().Hex())
 		txBytes, err := tx.MarshalBinary()
 		if err != nil {
 			fmt.Println("error marshalling tx", err)
@@ -126,6 +128,8 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 			fmt.Println("error sending bundle", err)
 			continue
 		}
+
+		sentBundles++
 	}
 
 	return nil

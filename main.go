@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -30,7 +31,7 @@ var (
 	runCount                = runCommand.String("count", "1,1", "number of agents per slot, comma separated list")
 	runStartEffGasPrices    = runCommand.String("start-gp", "5,6", "starting effective gas price(gwei), comma separated list")
 	runIncrementEffGasPrice = runCommand.String("inc-gp", "1,2", "increment effective gas price(gwei), comma separated list")
-	runBidRate              = runCommand.Int64("rate", 10, "bids per second")
+	runBidRate              = runCommand.Uint64("rate", 10, "bids per second")
 	runMevSimAddr           = runCommand.String("mevsim-addr", "0xafcb5f59eca70854780c04f4fdb04198b969b7ea", "mev sim address")
 )
 
@@ -54,29 +55,81 @@ func ExecuteRunCmd(args []string) error {
 		runCommand.Usage()
 		return err
 	}
+	var (
+		slots             []*big.Int
+		count             []int
+		startEffGasPrices []*big.Int
+		incEffGasPrices   []*big.Int
+		privateKeys       [][]*ecdsa.PrivateKey
+	)
+	if slotsInt, err := ParseIntList(*runSlots); err == nil {
+		for _, slot := range slotsInt {
+			slots = append(slots, big.NewInt(int64(slot)))
+		}
+	} else {
+		return err
+	}
+	count, err = ParseIntList(*runCount)
+	if err != nil {
+		return err
+	}
+	if startEffGasPricesInt, err := ParseIntList(*runStartEffGasPrices); err == nil {
+		for _, startEffGasPrice := range startEffGasPricesInt {
+			startEffGasPrices = append(startEffGasPrices, big.NewInt(int64(startEffGasPrice)))
+		}
+	} else {
+		return err
+	}
+	if incEffGasPricesInt, err := ParseIntList(*runIncrementEffGasPrice); err == nil {
+		for _, incEffGasPrice := range incEffGasPricesInt {
+			incEffGasPrices = append(incEffGasPrices, big.NewInt(int64(incEffGasPrice)))
+		}
+	} else {
+		return err
+	}
+	if len(slots) != len(count) || len(slots) != len(startEffGasPrices) || len(slots) != len(incEffGasPrices) {
+		return fmt.Errorf("slots, count, startEffGasPrices, incEffGasPrices must be the same length")
+	}
 
-	//startEffGasPrice := new(big.Int).Mul(big.NewInt(*runStartEffGasPrice), big.NewInt(1e9))
-	//incrementEffGasPrice := new(big.Int).Mul(big.NewInt(*runIncrementEffGasPrice), big.NewInt(1e9))
-	//privateKey, err := crypto.HexToECDSA(*runPrivKey)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//agent := BundleAgent{
-	//	slot:                 big.NewInt(*runSlot),
-	//	startingEffGasPrice:  startEffGasPrice,
-	//	incrementEffGasPrice: incrementEffGasPrice,
-	//	bidRate:              uint64(*runBidRate),
-	//	pk:                   privateKey,
-	//}
-	//
-	//mevSimAddress := common.HexToAddress(*runMevSimAddr)
-	//
-	//err = agent.RunBundleAgent(*runRpc, *runFlashbotsRpc, mevSimAddress)
-	//if err != nil {
-	//	return err
-	//}
-	//
+	totalCount := 0
+	for _, c := range count {
+		totalCount += c
+	}
+	_, pkeys, err := DeriveWallets(*mnemonic, totalCount)
+	for _, c := range count {
+		var keys []*ecdsa.PrivateKey
+		for i := 0; i < c; i++ {
+			keys = append(keys, pkeys[0])
+			pkeys = pkeys[1:]
+		}
+		privateKeys = append(privateKeys, keys)
+	}
+
+	doneChan := make(chan struct{}, totalCount)
+	mevSimAddr := common.HexToAddress(*runMevSimAddr)
+	for i := 0; i < len(slots); i++ {
+		for _, key := range privateKeys[i] {
+			agent := BundleAgent{
+				slot:                 slots[i],
+				startingEffGasPrice:  startEffGasPrices[i],
+				incrementEffGasPrice: incEffGasPrices[i],
+				bidRate:              *runBidRate,
+				pk:                   key,
+			}
+
+			go func() {
+				err := agent.RunBundleAgent(*rpc, *runFlashbotsRpc, mevSimAddr)
+				if err != nil {
+					fmt.Printf("error running agent: %v", err)
+				}
+				doneChan <- struct{}{}
+			}()
+		}
+	}
+
+	for i := 0; i < totalCount; i++ {
+		<-doneChan
+	}
 	return nil
 }
 
