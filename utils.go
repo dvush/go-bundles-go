@@ -172,3 +172,15 @@ func ParseIntList(s string) ([]int, error) {
 	}
 	return result, nil
 }
+
+func ParseFloatList(s string) ([]float64, error) {
+	var result []float64
+	for _, v := range strings.Split(s, ",") {
+		f, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, f)
+	}
+	return result, nil
+}

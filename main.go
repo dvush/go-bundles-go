@@ -73,16 +73,18 @@ func ExecuteRunCmd(args []string) error {
 	if err != nil {
 		return err
 	}
-	if startEffGasPricesInt, err := ParseIntList(*runStartEffGasPrices); err == nil {
-		for _, startEffGasPrice := range startEffGasPricesInt {
-			startEffGasPrices = append(startEffGasPrices, big.NewInt(int64(startEffGasPrice)))
+	if startEffGasPricesFloat, err := ParseFloatList(*runStartEffGasPrices); err == nil {
+		for _, startEffGasPrice := range startEffGasPricesFloat {
+			value := big.NewInt(int64(startEffGasPrice * 1e9))
+			startEffGasPrices = append(startEffGasPrices, value)
 		}
 	} else {
 		return err
 	}
-	if incEffGasPricesInt, err := ParseIntList(*runIncrementEffGasPrice); err == nil {
-		for _, incEffGasPrice := range incEffGasPricesInt {
-			incEffGasPrices = append(incEffGasPrices, big.NewInt(int64(incEffGasPrice)))
+	if incEffGasPricesFloat, err := ParseFloatList(*runIncrementEffGasPrice); err == nil {
+		for _, incEffGasPrice := range incEffGasPricesFloat {
+			value := big.NewInt(int64(incEffGasPrice * 1e9))
+			incEffGasPrices = append(incEffGasPrices, value)
 		}
 	} else {
 		return err
