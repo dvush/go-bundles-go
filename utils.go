@@ -126,8 +126,8 @@ func privateKeySinger(pk *ecdsa.PrivateKey, signer types.Signer) bind.SignerFn {
 }
 
 func DeriveWallets(mnemonic string, count int) (*ecdsa.PrivateKey, []*ecdsa.PrivateKey, error) {
-	if count < 2 {
-		return nil, nil, fmt.Errorf("count must be greater than 2")
+	if count < 1 {
+		return nil, nil, fmt.Errorf("count must be greater than 1")
 	}
 
 	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
