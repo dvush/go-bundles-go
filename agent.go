@@ -54,10 +54,12 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 			From:    bundleAgentAddress,
 		},
 		TransactOpts: bind.TransactOpts{
-			From:   bundleAgentAddress,
-			Signer: privateKeySinger(b.pk, signer),
-			Value:  big.NewInt(0),
-			NoSend: true,
+			From:      bundleAgentAddress,
+			Signer:    privateKeySinger(b.pk, signer),
+			Value:     big.NewInt(0),
+			NoSend:    true,
+			GasFeeCap: big.NewInt(0),
+			GasTipCap: big.NewInt(0),
 		},
 	}
 
@@ -65,6 +67,7 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 		lastBlockNumber uint64
 		lastEffGasPrice *big.Int
 		lastSlotValue   *big.Int
+		lastBaseFee     *big.Int
 		lastNonce       uint64
 
 		sentBundles uint64
@@ -94,6 +97,17 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 				fmt.Println("error getting nonce", err)
 				continue
 			}
+			suggestedGasPrice, err := client.SuggestGasPrice(context.Background())
+			if err != nil {
+				fmt.Println("error getting gas price", err)
+				continue
+			}
+			suggestedTip, err := client.SuggestGasTipCap(context.Background())
+			if err != nil {
+				fmt.Println("error getting gas tip", err)
+				continue
+			}
+			lastBaseFee = new(big.Int).Sub(suggestedGasPrice, suggestedTip)
 			lastEffGasPrice = new(big.Int).Set(b.startingEffGasPrice)
 			lastBlockNumber = blockNumber
 			sentBundles = 0
@@ -102,8 +116,8 @@ func (b *BundleAgent) RunBundleAgent(rpc string, flashbotsRpc string, mevsimAddr
 		}
 
 		mevsimSession.TransactOpts.Nonce = big.NewInt(int64(lastNonce))
-		mevsimSession.TransactOpts.GasFeeCap = lastEffGasPrice
-		mevsimSession.TransactOpts.GasTipCap = lastEffGasPrice
+		mevsimSession.TransactOpts.GasFeeCap.Add(lastBaseFee, lastEffGasPrice)
+		mevsimSession.TransactOpts.GasTipCap.Set(lastEffGasPrice)
 		mevsimSession.TransactOpts.GasLimit = 100000
 		tx, err := mevsimSession.Auction(b.slot, lastSlotValue, big.NewInt(int64(blockNumber+1)))
 		if err != nil {
