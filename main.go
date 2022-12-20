@@ -22,7 +22,7 @@ var (
 
 	fundCommand = flag.NewFlagSet("fund", flag.ExitOnError)
 	fundCheck   = fundCommand.Bool("check", false, "only check balances")
-	fundAmount  = fundCommand.Int64("amount", 1000000000000000000, "amount to fund")
+	fundAmount  = fundCommand.Int64("amount", 1000000000000000000, "target balance of searcher wallets")
 	fundCount   = fundCommand.Int("count", 10, "number of accounts to fund")
 
 	runCommand              = flag.NewFlagSet("run", flag.ExitOnError)

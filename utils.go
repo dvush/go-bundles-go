@@ -153,14 +153,6 @@ func DeriveWallets(mnemonic string, count int) (*ecdsa.PrivateKey, []*ecdsa.Priv
 	return accounts[0], accounts[1:], nil
 }
 
-func ReportWallets(main *ecdsa.PrivateKey, searchers []*ecdsa.PrivateKey) {
-	// address from private key
-	fmt.Println("Main wallet address:", crypto.PubkeyToAddress(main.PublicKey).String())
-	for i, searcher := range searchers {
-		fmt.Println(fmt.Sprintf("Searcher %d address: ", i), crypto.PubkeyToAddress(searcher.PublicKey).String())
-	}
-}
-
 func ParseIntList(s string) ([]int, error) {
 	var result []int
 	for _, v := range strings.Split(s, ",") {
